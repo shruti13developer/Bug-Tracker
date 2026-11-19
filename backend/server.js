@@ -13,9 +13,14 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({
-  origin: "http://localhost:5173",
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://bug-tracker-blond-eight.vercel.app",
+    ],
+  })
+);
 
 app.use(express.json());
 
