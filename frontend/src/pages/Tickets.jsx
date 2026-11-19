@@ -34,8 +34,9 @@ function Tickets() {
   const [priorityFilter, setPriorityFilter] = useState("all");
 
   const [showModal, setShowModal] = useState(false);
+  const [editingTicket, setEditingTicket] = useState(null);
 
-  const [form, setForm] = useState({
+  const initialForm = {
     title: "",
     description: "",
     project: "",
@@ -43,9 +44,11 @@ function Tickets() {
     severity: "minor",
     status: "todo",
     environment: "",
-  });
-  const [editingTicket, setEditingTicket] = useState(null);
+  };
 
+  const [form, setForm] = useState(initialForm);
+
+  // LOAD TICKETS AND PROJECTS
   const loadData = async () => {
     try {
       setLoading(true);
@@ -64,39 +67,45 @@ function Tickets() {
       setLoading(false);
     }
   };
-  const handleEdit = (ticket) => {
-  setEditingTicket(ticket);
-  setForm({
-    title: ticket.title,
-    description: ticket.description,
-    project: ticket.project?._id || "",
-    priority: ticket.priority,
-    severity: ticket.severity,
-    status: ticket.status,
-    environment: ticket.environment || "",
-  });
-  setShowModal(true);
-};
-
-const handleDelete = async (id) => {
-  const confirmed = window.confirm(
-    "Are you sure you want to delete this ticket?"
-  );
-
-  if (!confirmed) return;
-
-  try {
-    await deleteTicket(id);
-    await loadData();
-  } catch (error) {
-    alert(error.message);
-  }
-};
 
   useEffect(() => {
     loadData();
   }, []);
 
+  // EDIT TICKET
+  const handleEdit = (ticket) => {
+    setEditingTicket(ticket);
+
+    setForm({
+      title: ticket.title || "",
+      description: ticket.description || "",
+      project: ticket.project?._id || "",
+      priority: ticket.priority || "medium",
+      severity: ticket.severity || "minor",
+      status: ticket.status || "todo",
+      environment: ticket.environment || "",
+    });
+
+    setShowModal(true);
+  };
+
+  // DELETE TICKET
+  const handleDelete = async (id) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this issue?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteTicket(id);
+      await loadData();
+    } catch (err) {
+      alert(err.message || "Failed to delete issue");
+    }
+  };
+
+  // SEARCH AND FILTER
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
       const searchText = search.toLowerCase();
@@ -104,10 +113,12 @@ const handleDelete = async (id) => {
       const matchesSearch =
         ticket.ticketId?.toLowerCase().includes(searchText) ||
         ticket.title?.toLowerCase().includes(searchText) ||
-        ticket.description?.toLowerCase().includes(searchText);
+        ticket.description?.toLowerCase().includes(searchText) ||
+        ticket.project?.name?.toLowerCase().includes(searchText);
 
       const matchesStatus =
-        statusFilter === "all" || ticket.status === statusFilter;
+        statusFilter === "all" ||
+        ticket.status === statusFilter;
 
       const matchesPriority =
         priorityFilter === "all" ||
@@ -117,6 +128,7 @@ const handleDelete = async (id) => {
     });
   }, [tickets, search, statusFilter, priorityFilter]);
 
+  // FORM INPUT
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -126,41 +138,41 @@ const handleDelete = async (id) => {
     }));
   };
 
-  
-const handleCreateTicket = async (e) => {
-  e.preventDefault();
+  // CREATE OR UPDATE TICKET
+  const handleCreateTicket = async (e) => {
+    e.preventDefault();
 
-  try {
-    setSaving(true);
-    setError("");
+    try {
+      setSaving(true);
+      setError("");
 
-    if (editingTicket) {
-      await updateTicket(editingTicket._id, form);
-    } else {
-      await createTicket(form);
-    }
+      if (editingTicket) {
+        await updateTicket(editingTicket._id, form);
+      } else {
+        await createTicket(form);
+      }
 
-    setForm({
-      title: "",
-      description: "",
-      project: "",
-      priority: "medium",
-      severity: "minor",
-      status: "todo",
-      environment: "",
-    });
+      setForm(initialForm);
+      setEditingTicket(null);
+      setShowModal(false);
 
-    setEditingTicket(null);
-    setShowModal(false);
-    await loadData();
+      await loadData();
     } catch (err) {
-    setError(err.message || "Failed to save ticket");
+      setError(err.message || "Failed to save issue");
     } finally {
-    setSaving(false);
+      setSaving(false);
     }
-    };
+  };
 
+  // OPEN CREATE MODAL
+  const openCreateModal = () => {
+    setEditingTicket(null);
+    setForm(initialForm);
+    setError("");
+    setShowModal(true);
+  };
 
+  // BADGE STYLES
   const priorityStyle = {
     critical: "text-red-400 bg-red-400/10",
     high: "text-orange-400 bg-orange-400/10",
@@ -185,7 +197,7 @@ const handleCreateTicket = async (e) => {
           </p>
 
           <h1 className="text-3xl font-semibold tracking-tight">
-            Issues
+            Manage Issues
           </h1>
 
           <p className="text-zinc-500 text-sm mt-2">
@@ -194,20 +206,10 @@ const handleCreateTicket = async (e) => {
         </div>
 
         <button
-        onClick={() => {
-            setEditingTicket(null);
-            setForm({
-                title: "",
-                description: "",
-                project: "",
-                priority: "medium",
-                severity: "minor",
-                status: "todo",
-                environment: "",
-            });
-            setShowModal(true);
-            }}        
-            >
+          type="button"
+          onClick={openCreateModal}
+          className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 transition"
+        >
           <Plus size={17} />
           Create issue
         </button>
@@ -286,6 +288,7 @@ const handleCreateTicket = async (e) => {
         </select>
 
         <button
+          type="button"
           onClick={loadData}
           className="flex items-center justify-center gap-2 px-4 py-3 border border-zinc-800 rounded-lg text-sm text-zinc-400 hover:text-white"
         >
@@ -297,21 +300,38 @@ const handleCreateTicket = async (e) => {
       {/* TICKET LIST */}
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-[#111113]">
 
+        {/* TABLE HEADER */}
         <div className="grid grid-cols-12 gap-3 px-5 py-4 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500">
-          <div className="col-span-6 md:col-span-5">Issue</div>
-          <div className="hidden md:block md:col-span-2">Status</div>
-          <div className="col-span-3 md:col-span-2">Priority</div>
-          <div className="col-span-3 md:col-span-3">Project</div>
+          <div className="col-span-6 md:col-span-5">
+            Issue
+          </div>
+
+          <div className="hidden md:block md:col-span-2">
+            Status
+          </div>
+
+          <div className="col-span-3 md:col-span-2">
+            Priority
+          </div>
+
+          <div className="col-span-3 md:col-span-3">
+            Project
+          </div>
         </div>
 
+        {/* LOADING */}
         {loading ? (
           <div className="flex justify-center items-center py-16 text-zinc-500">
             <Loader2 className="animate-spin mr-2" size={20} />
             Loading issues...
           </div>
         ) : filteredTickets.length === 0 ? (
+          /* EMPTY STATE */
           <div className="text-center py-16">
-            <Bug size={32} className="mx-auto text-zinc-600 mb-3" />
+            <Bug
+              size={32}
+              className="mx-auto text-zinc-600 mb-3"
+            />
 
             <p className="text-zinc-300 font-medium">
               No issues found
@@ -322,48 +342,63 @@ const handleCreateTicket = async (e) => {
             </p>
           </div>
         ) : (
+          /* ISSUE ROWS */
           filteredTickets.map((ticket) => (
             <div
               key={ticket._id}
               className="grid grid-cols-12 gap-3 items-center px-5 py-4 border-b border-zinc-800/70 hover:bg-white/[0.02]"
             >
+
+              {/* ISSUE TITLE AND ACTIONS */}
               <div className="col-span-6 md:col-span-5 min-w-0">
-                <div className="flex items-center gap-1">
-                  
-                  <Link
+
+                <Link
                   to={`/tickets/${ticket._id}`}
-                  title="View issue details"
-                  className="rounded-md px-3 py-2 text-xs font-medium text-indigo-400 hover:bg-indigo-500/10"
+                  title={ticket.title || "View issue"}
+                  className="block text-sm font-semibold text-zinc-100 hover:text-indigo-400 truncate"
+                >
+                  {ticket.title || "Untitled issue"}
+                </Link>
+
+                <div className="flex items-center flex-wrap gap-2 mt-2">
+                  <span className="text-xs text-zinc-500">
+                    {ticket.ticketId}
+                  </span>
+
+                  <Link
+                    to={`/tickets/${ticket._id}`}
+                    className="text-xs text-indigo-400 hover:text-indigo-300"
                   >
                     View
-                    </Link>
-                    
-                    <button
+                  </Link>
+
+                  <button
                     type="button"
                     onClick={() => handleEdit(ticket)}
                     title="Edit issue"
-                    className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800"
-                    >
-                      <Pencil size={15} />
-                      </button>
-                      <button
-                      type="button"
-                      onClick={() => handleDelete(ticket._id)}
-                      title="Delete issue"
-                      className="p-2 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                        
-                    </div>
+                    className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  >
+                    <Pencil size={14} />
+                  </button>
 
-                <p className="text-xs text-zinc-500 mt-1 ml-6">
-                  {ticket.ticketId}
-                </p>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(ticket._id)}
+                    title="Delete issue"
+                    className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
 
+              {/* STATUS */}
               <div className="hidden md:block md:col-span-2">
-                <span className={`px-2.5 py-1 rounded-md text-xs ${statusStyle[ticket.status] || statusStyle.todo}`}>
+                <span
+                  className={`px-2.5 py-1 rounded-md text-xs ${
+                    statusStyle[ticket.status] || statusStyle.todo
+                  }`}
+                >
                   {ticket.status === "in-progress"
                     ? "In Progress"
                     : ticket.status === "todo"
@@ -372,56 +407,46 @@ const handleCreateTicket = async (e) => {
                 </span>
               </div>
 
+              {/* PRIORITY */}
               <div className="col-span-3 md:col-span-2">
-                <span className={`px-2.5 py-1 rounded-md text-xs capitalize ${priorityStyle[ticket.priority] || priorityStyle.medium}`}>
-                  {ticket.priority}
+                <span
+                  className={`px-2.5 py-1 rounded-md text-xs capitalize ${
+                    priorityStyle[ticket.priority] ||
+                    priorityStyle.medium
+                  }`}
+                >
+                  {ticket.priority || "Medium"}
                 </span>
               </div>
 
-              <div className="col-span-3 md:col-span-3 flex flex-col md:flex-row md:items-center gap-2">
-                <span className="text-xs text-zinc-400 truncate">
-                    {ticket.project?.name || "Unknown project"}
-                    </span>
-                    
-                    <div className="flex items-center gap-2">
-                        <button
-                        type="button"
-                        onClick={() => handleEdit(ticket)}
-                        title="Edit issue"
-                        className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800"
-                        >
-                            <Pencil size={15} />
-                            </button>
-                            
-                            <button
-                            type="button"
-                            onClick={() => handleDelete(ticket._id)}
-                            title="Delete issue"
-                            className="p-2 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
-                            >
-                                <Trash2 size={15} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ))
+              {/* PROJECT */}
+              <div className="col-span-3 md:col-span-3 min-w-0">
+                <span className="text-xs text-zinc-400 truncate block">
+                  {ticket.project?.name || "Unknown project"}
+                </span>
+              </div>
+            </div>
+          ))
         )}
-    </div>
+      </div>
 
+      {/* ISSUE COUNT */}
       <p className="text-xs text-zinc-600 mt-4">
         Showing {filteredTickets.length} of {tickets.length} issues
       </p>
 
-      {/* CREATE TICKET MODAL */}
+      {/* CREATE / EDIT ISSUE MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-xl bg-[#151518] border border-zinc-800 rounded-2xl p-6 my-auto">
 
+            {/* MODAL HEADER */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-semibold">
-                    {editingTicket ? "Edit issue" : "Create issue"}
+                  {editingTicket ? "Edit issue" : "Create issue"}
                 </h2>
+
                 <p className="text-sm text-zinc-500 mt-1">
                   Add a new bug or issue to your project.
                 </p>
@@ -429,20 +454,33 @@ const handleCreateTicket = async (e) => {
 
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
-                aria-label="Close create issue dialog"
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingTicket(null);
+                  setForm(initialForm);
+                }}
+                aria-label="Close issue dialog"
                 className="text-zinc-500 hover:text-white"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTicket} className="space-y-4">
+            {/* FORM */}
+            <form
+              onSubmit={handleCreateTicket}
+              className="space-y-4"
+            >
 
+              {/* TITLE */}
               <div>
-                <label htmlFor="title" className="block text-sm text-zinc-300 mb-2">
+                <label
+                  htmlFor="title"
+                  className="block text-sm text-zinc-300 mb-2"
+                >
                   Issue title *
                 </label>
+
                 <input
                   id="title"
                   name="title"
@@ -455,10 +493,15 @@ const handleCreateTicket = async (e) => {
                 />
               </div>
 
+              {/* DESCRIPTION */}
               <div>
-                <label htmlFor="description" className="block text-sm text-zinc-300 mb-2">
+                <label
+                  htmlFor="description"
+                  className="block text-sm text-zinc-300 mb-2"
+                >
                   Description *
                 </label>
+
                 <textarea
                   id="description"
                   name="description"
@@ -471,10 +514,15 @@ const handleCreateTicket = async (e) => {
                 />
               </div>
 
+              {/* PROJECT */}
               <div>
-                <label htmlFor="project" className="block text-sm text-zinc-300 mb-2">
+                <label
+                  htmlFor="project"
+                  className="block text-sm text-zinc-300 mb-2"
+                >
                   Project *
                 </label>
+
                 <select
                   id="project"
                   name="project"
@@ -483,20 +531,32 @@ const handleCreateTicket = async (e) => {
                   required
                   className="w-full bg-[#09090b] border border-zinc-800 rounded-lg px-3 py-3 text-sm outline-none"
                 >
-                  <option value="">Select a project</option>
+                  <option value="">
+                    Select a project
+                  </option>
+
                   {projects.map((project) => (
-                    <option key={project._id} value={project._id}>
+                    <option
+                      key={project._id}
+                      value={project._id}
+                    >
                       {project.name}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* PRIORITY AND SEVERITY */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
                 <div>
-                  <label htmlFor="priority" className="block text-sm text-zinc-300 mb-2">
+                  <label
+                    htmlFor="priority"
+                    className="block text-sm text-zinc-300 mb-2"
+                  >
                     Priority
                   </label>
+
                   <select
                     id="priority"
                     name="priority"
@@ -512,9 +572,13 @@ const handleCreateTicket = async (e) => {
                 </div>
 
                 <div>
-                  <label htmlFor="severity" className="block text-sm text-zinc-300 mb-2">
+                  <label
+                    htmlFor="severity"
+                    className="block text-sm text-zinc-300 mb-2"
+                  >
                     Severity
                   </label>
+
                   <select
                     id="severity"
                     name="severity"
@@ -531,10 +595,15 @@ const handleCreateTicket = async (e) => {
                 </div>
               </div>
 
+              {/* STATUS */}
               <div>
-                <label htmlFor="status" className="block text-sm text-zinc-300 mb-2">
+                <label
+                  htmlFor="status"
+                  className="block text-sm text-zinc-300 mb-2"
+                >
                   Status
                 </label>
+
                 <select
                   id="status"
                   name="status"
@@ -548,10 +617,15 @@ const handleCreateTicket = async (e) => {
                 </select>
               </div>
 
+              {/* ENVIRONMENT */}
               <div>
-                <label htmlFor="environment" className="block text-sm text-zinc-300 mb-2">
+                <label
+                  htmlFor="environment"
+                  className="block text-sm text-zinc-300 mb-2"
+                >
                   Environment
                 </label>
+
                 <input
                   id="environment"
                   name="environment"
@@ -562,10 +636,15 @@ const handleCreateTicket = async (e) => {
                 />
               </div>
 
+              {/* FORM BUTTONS */}
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingTicket(null);
+                    setForm(initialForm);
+                  }}
                   className="px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-800"
                 >
                   Cancel
@@ -576,22 +655,24 @@ const handleCreateTicket = async (e) => {
                   disabled={saving || projects.length === 0}
                   className="px-5 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 disabled:opacity-50 flex items-center gap-2"
                 >
-                  {saving && <Loader2 size={16} className="animate-spin" />}
+                  {saving && (
+                    <Loader2
+                      size={16}
+                      className="animate-spin"
+                    />
+                  )}
+
                   {saving
-                  ? editingTicket
-                  ? "Saving..."
-                  : "Creating..."
-                  : editingTicket
-                  ? "Save changes"
-                  : "Create issue"}
+                    ? "Saving..."
+                    : editingTicket
+                    ? "Save changes"
+                    : "Create issue"}
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }
