@@ -35,9 +35,14 @@ export const createTicket = async (req, res) => {
       });
     }
 
-    const count = await Ticket.countDocuments({ project });
-    const ticketId = `BUG-${String(count + 1).padStart(4, "0")}`;
+// Generate a globally unique ticket ID
+let count = await Ticket.countDocuments();
+let ticketId = `BUG-${String(count + 1).padStart(4, "0")}`;
 
+while (await Ticket.findOne({ ticketId })) {
+  count++;
+  ticketId = `BUG-${String(count + 1).padStart(4, "0")}`;
+}
     const ticket = await Ticket.create({
       ticketId,
       title,
