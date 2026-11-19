@@ -39,9 +39,11 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await connectDB();
 
-  app.listen(PORT, () => {
-    console.log(`BugTracker server running on port ${PORT}`);
-  });
-};
+  const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`BugTracker server running on port ${PORT}`);
+});
+}
 
 startServer();
