@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   DndContext,
   closestCorners,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -22,6 +23,7 @@ import {
   RefreshCw,
   Bug,
   Loader2,
+  GripVertical,
 } from "lucide-react";
 
 import {
@@ -82,22 +84,35 @@ function TicketCard({ ticket }) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="bg-[#18181b] border border-zinc-800 rounded-xl p-4 mb-3 cursor-grab active:cursor-grabbing hover:border-zinc-600"
+      className="bg-[#18181b] border border-zinc-800 rounded-xl p-4 mb-3 hover:border-zinc-600"
     >
-      <div className="flex items-center gap-2 mb-3">
-        <Bug size={14} className="text-zinc-500" />
+      {/* DRAG HANDLE */}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bug size={14} className="text-zinc-500 shrink-0" />
 
-        <span className="text-xs text-zinc-500">
-          {ticket.ticketId}
-        </span>
+          <span className="text-xs text-zinc-500 truncate">
+            {ticket.ticketId}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag issue ${ticket.ticketId}`}
+          className="touch-none select-none cursor-grab active:cursor-grabbing p-2 -mr-2 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700"
+        >
+          <GripVertical size={18} />
+        </button>
       </div>
 
-      <h3 className="text-sm font-medium text-zinc-100 mb-3">
+      {/* ISSUE TITLE */}
+      <h3 className="text-sm font-medium text-zinc-100 mb-3 break-words">
         {ticket.title}
       </h3>
 
+      {/* PRIORITY AND PROJECT */}
       <div className="flex items-center justify-between gap-2">
         <span
           className={`text-xs px-2 py-1 rounded-md capitalize ${
@@ -129,12 +144,13 @@ function BoardColumn({ column, tickets }) {
   return (
     <div
       ref={setNodeRef}
-      className={`bg-[#111113] border rounded-xl p-4 min-h-[450px] transition ${
+      className={`bg-[#111113] border rounded-xl p-4 min-h-[250px] md:min-h-[450px] transition ${
         isOver
           ? "border-blue-500 bg-blue-500/5"
           : "border-zinc-800"
       }`}
     >
+      {/* COLUMN HEADER */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <span
@@ -151,6 +167,7 @@ function BoardColumn({ column, tickets }) {
         </span>
       </div>
 
+      {/* TICKETS */}
       <SortableContext
         items={tickets.map((ticket) => ticket._id)}
         strategy={verticalListSortingStrategy}
@@ -179,10 +196,18 @@ function Board() {
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
 
+  // DESKTOP MOUSE + MOBILE TOUCH SENSORS
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 5,
+      },
+    }),
+
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 180,
+        tolerance: 8,
       },
     })
   );
@@ -246,6 +271,7 @@ function Board() {
 
     try {
       setSavingId(active.id);
+      setError("");
 
       // SAVE STATUS TO DATABASE
       await updateTicket(active.id, {
@@ -274,7 +300,7 @@ function Board() {
 
   // MAIN UI
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 p-6 md:p-10">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 p-4 sm:p-6 md:p-10">
 
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -290,11 +316,16 @@ function Board() {
           <p className="text-sm text-zinc-500 mt-2">
             Organize and track your issues.
           </p>
+
+          <p className="text-xs text-zinc-600 mt-2">
+            Hold the grip icon to drag an issue on mobile.
+          </p>
         </div>
 
         <button
+          type="button"
           onClick={loadTickets}
-          className="flex items-center gap-2 px-4 py-2.5 border border-zinc-800 rounded-lg text-sm hover:bg-zinc-800"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-zinc-800 rounded-lg text-sm hover:bg-zinc-800"
         >
           <RefreshCw size={15} />
           Refresh
